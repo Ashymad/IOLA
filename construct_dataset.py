@@ -56,7 +56,7 @@ with h5.File('dataset.h5', 'w') as f:
             break
         except Exception as ex:
             print(f"Exception: {ex}")
-            break
+            continue
     labels.resize(actualsize, 0)
     data.resize(actualsize, 0)
 
