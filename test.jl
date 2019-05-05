@@ -1,7 +1,5 @@
-import Pkg
-Pkg.activate("IOLA.jl")
-
 using IOLA
+using MDCT
 using DSP
 using WAV
 using Gnuplot
@@ -9,9 +7,12 @@ using Gnuplot
 len = 1152
 hop = div(len,2)
 period = sqrt(hop)/2
+win = Windows.cosine(len)
+
+mdct_fn = plan_mdct(win)
 
 function transform(s) 
-    20*log10.(abs.(transforms.STMDCT(s, Windows.cosine(len), hop)))
+    20*log10.(abs.(transforms.STMDCT(s, win, hop, mdct_fn)))
 end
 
 (y, fs, nbits, opt) = wavread("data/audio.wav")
