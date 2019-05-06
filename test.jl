@@ -12,7 +12,7 @@ win = Windows.cosine(len)
 mdct_fn = plan_mdct(win)
 
 function transform(s) 
-    20*log10.(abs.(transforms.STMDCT(s, win, hop, mdct_fn)))
+    transforms.STMDCT(s, win, hop, mdct_fn)
 end
 
 (y, fs, nbits, opt) = wavread("data/audio.wav")
@@ -47,4 +47,3 @@ diffs320 = analyze(y[:,1], transform, convert(Int, fs), hop)
     2π*mod.(diffs320[:,2], period)/period, diffs320[:,1], "pt 7 ps 2 t '320'",
     2π*mod.(diffs[:,2], period)/period, diffs[:,1], "pt 7 ps 2 t 'none'"
    )
-
