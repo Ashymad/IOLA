@@ -4,28 +4,23 @@ using DSP
 using WAV
 using Gnuplot
 
-len = 1152
-hop = div(len,2)
-period = sqrt(hop)/2
-win = Windows.cosine(len)
+period = 36.0
 
-mdct_fn = plan_mdct(win)
-
-function transform(s) 
-    transforms.STMDCT(s, win, hop, mdct_fn)
-end
+params = Codec.getParams(Codec.MP3)
+hop = params.hop
+transform = Codec.getTransformFunction(params)
 
 (y, fs, nbits, opt) = wavread("data/audio.wav")
 
-diffs = analyze(y[:,1], transform, convert(Int, fs), hop)
+diffs = analyze(y[1:div(end,2),1], transform, convert(Int, fs), hop)
 
 (y, fs, nbits, opt) = wavread("data/audio-128.wav")
 
-diffs128 = analyze(y[:,1], transform, convert(Int, fs), hop)
+diffs128 = analyze(y[1:div(end,2),1], transform, convert(Int, fs), hop)
 
 (y, fs, nbits, opt) = wavread("data/audio-196.wav")
 
-diffs196 = analyze(y[:,1], transform, convert(Int, fs), hop)
+diffs196 = analyze(y[1:div(end,2),1], transform, convert(Int, fs), hop)
 
 (y, fs, nbits, opt) = wavread("data/audio-256.wav")
 
@@ -33,7 +28,7 @@ diffs256 = analyze(y[:,1], transform, convert(Int, fs), hop)
 
 (y, fs, nbits, opt) = wavread("data/audio-320.wav")
 
-diffs320 = analyze(y[:,1], transform, convert(Int, fs), hop)
+diffs320 = analyze(y[1:div(end,2),1], transform, convert(Int, fs), hop)
 
 @gp("set angles radians",
     "set polar",
