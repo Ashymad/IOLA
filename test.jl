@@ -8,9 +8,9 @@ using Gnuplot
 #period = 68.0 #aac
 #period = 17 #ac3?
 
-codec = "ogg"
+codec = "aac"
 
-params = Codec.getParams(Codec.OGG)
+params = Codec.getParams(Codec.AAC)
 seg_hop = params.hop
 transform = Codec.getTransformFunction(params)
 
@@ -45,7 +45,8 @@ xs = 1:seg_hop
 periodf = zeros(length(xs), 5)
 for i = 1:length(xs), j = 1:5
     per = mod.(diffs[j][:,2],xs[i])
-    periodf[i, j] = sum(abs.(per .- sum(per)/length(per)))
+    sump = sum(per)
+    periodf[i, j] = sum(abs.(per .- sump/length(per)))/sump
 end
 
 @gp(:GP2,
