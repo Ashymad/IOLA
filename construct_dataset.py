@@ -31,26 +31,27 @@ with h5.File('dataset.h5', 'w') as f:
     for (root, dirs, files) in os.walk(os.getcwd()):
         try:
             for cfile in files:
-                if splitext(cfile)[-1].lower() == ".flac":
-                    fpath = join(root, cfile)
-                    print(f"Preparing: {fpath} ({int(actualsize/lenbr)}/{int(maxsize/lenbr)})")
-                    audio = AudioSegment\
-                        .from_file(fpath, format="flac")
-                    if audio.duration_seconds > fragment_length and \
-                       audio.frame_rate == fs:
-                        audio = normalize(audio.set_channels(1).set_sample_width(bd//8))
-                        start = randint(0, np.floor((audio.duration_seconds-fragment_length)*1000))
-                        fragment = audio[start:(fragment_length*1000+start)]
-                        for i in range(lenbr):
-                            ind = i + actualsize
-                            labels[ind] = bitrates_labels[i]
-                            if bitrates[i] is not None:
-                                fragment.export(f"/tmp/tmp.{fmt}", format=fmt,
-                                                bitrate=bitrates[i])
-                                fragment = AudioSegment.from_file(f"/tmp/tmp.{fmt}",
-                                                                  format=fmt)
-                            data[ind, :] = fragment.get_array_of_samples()
-                        actualsize += lenbr
+                if splitext(cfile)[-1].lower() != ".flac":
+                    continue
+                fpath = join(root, cfile)
+                print(f"Preparing: {fpath} ({int(actualsize/lenbr)}/{int(maxsize/lenbr)})")
+                audio = AudioSegment\
+                    .from_file(fpath, format="flac")
+                if audio.duration_seconds > fragment_length and \
+                   audio.frame_rate == fs:
+                    audio = normalize(audio.set_channels(1).set_sample_width(bd//8))
+                    start = randint(0, np.floor((audio.duration_seconds-fragment_length)*1000))
+                    fragment = audio[start:(fragment_length*1000+start)]
+                    for i in range(lenbr):
+                        ind = i + actualsize
+                        labels[ind] = bitrates_labels[i]
+                        if bitrates[i] is not None:
+                            fragment.export(f"/tmp/tmp.{fmt}", format=fmt,
+                                            bitrate=bitrates[i])
+                            fragment = AudioSegment.from_file(f"/tmp/tmp.{fmt}",
+                                                              format=fmt)
+                        data[ind, :] = fragment.get_array_of_samples()
+                    actualsize += lenbr
         except KeyboardInterrupt:
             print("Received SIGINT, exiting...")
             break
