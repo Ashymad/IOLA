@@ -1,3 +1,4 @@
+using CuArrays
 using Flux
 using Flux: onecold, onehotbatch, ADAM
 using Base.Iterators: partition
@@ -94,8 +95,8 @@ function make_batch(data, labels, idxs)
     return [make_minibatch(data, labels, i) for i in minibatch_idxs]
 end
 
-minibatch_size = 8
-batch_size = 512
+minibatch_size = 2
+batch_size = 16
 train_size = 6144
 test_size = 2048
 
@@ -118,10 +119,9 @@ for epoch_idx in 1:100
     b_it = 0
     test_acc = 0
     train_acc = 0
-    train_loss = 0
     test_accs = Array{Float32, 1}()
     train_accs = Array{Float32, 1}()
-    train_losses = Array{Float32, 1}()
+
     h5open("./dataset.h5", "r") do file
         data = file["data"]
         labels = file["labels"]
@@ -131,22 +131,16 @@ for epoch_idx in 1:100
             b_it += 1
             let train_set = make_batch(data, labels, data_ind)
                 Flux.train!(loss, ps, train_set, opt, cb = () -> print(" Batch: $(b_it)/$batches Minibatch: $(mb_it+=1)/$minibatches                             \r"))
-            end
-            gc()
-        end
-
-        for data_ind in train_batch_idxs
-            let train_set = make_batch(data, labels, data_ind)
-                train_loss += mbfn((x,y) -> loss(x, y, false), train_set)
                 train_acc += mbfn(accuracy, train_set)
             end
             gc()
         end
         train_acc /= length(train_batch_idxs)
-        train_loss /= length(train_batch_idxs)
 
+        b_it = 0
         for data_ind in test_batch_idxs
             let test_set = make_batch(data, labels, data_ind)
+                print("Batch: $(b_it+=1)/$(length(test_batch_idxs))                              \r")
                 test_acc += mbfn(accuracy, test_set)
             end
             gc()
@@ -155,11 +149,10 @@ for epoch_idx in 1:100
     end
 
 
-    @info(@sprintf("[%d]: Loss: %.4f Accuracy: %.4f Test accuracy: %.4f", epoch_idx, train_loss, train_acc, test_acc))
+    @info(@sprintf("[%d]: Accuracy: %.4f Test accuracy: %.4f", epoch_idx, train_acc, test_acc))
     push!(train_accs, train_acc)
-    push!(train_losses, train_loss)
     push!(test_accs, test_acc)
-    BSON.@save "iola_hist.bson" train_accs train_losses test_accs
+    BSON.@save "iola_hist.bson" train_accs test_accs
 
     # If our accuracy is good enough, quit out.
     if test_acc >= 0.999
