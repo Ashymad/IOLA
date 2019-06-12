@@ -1,9 +1,10 @@
 ENV["COLUMNS"]=72
+import Base.GC.gc
+gc()
 using DSP.Periodograms: stft, nextfastfft
 using DSP.Windows: hanning
 using HDF5
-import Base.GC.gc
-using Base.Iterators: flatten, partition
+using Base.Iterators: flatten, cycle, take, partition
 using Statistics: mean, std
 using Knet
 using Knet: Data
@@ -28,19 +29,10 @@ function make_batch(data, labels, idxs, minibatch_size; n = 512, noverlap = div(
     return minibatch(X_batch, Y_batch, ceil(Int64, length(idxs) / minibatch_size))
 end
 
-function train(file, model, dtrn, dtst; o...)
-    takeevery(n,itr) = (x for (i,x) in enumerate(itr) if i % n == 1)
-    r = ((model(dtrn), model(dtst), zeroone(model,dtrn), zeroone(model,dtst))
-         for x in takeevery(length(dtrn), progress(adam(model,repeat(dtrn,100)))))
-    r = reshape(collect(Float32,flatten(r)),(4,:))
-    Knet.save(file,"results",r)
-    Knet.gc()
-end
-
 minibatch_size = 4
 batch_size = 16
-train_size = 6144
-test_size = 2048
+train_size = 512
+test_size = 256
 
 train_batch_idxs = partition(1:train_size, batch_size)
 test_batch_idxs = partition((train_size+1):(train_size+test_size), batch_size)
@@ -69,13 +61,23 @@ h5open("./dataset.h5") do file
     data = file["data"]
     labels = file["labels"]
 
-    dtrn = make_batch(data, labels, collect(train_batch_idxs)[1], minibatch_size)
-    dtst = make_batch(data, labels, collect(test_batch_idxs)[1], minibatch_size)
-
-    for ep in 1:10
-        progress!(adam(model, dtrn))
+    for idx in progress(train_batch_idxs)
+        let dtrn = make_batch(data, labels, idx, minibatch_size)
+            for a in adam(model, dtrn); end
+        end
+        print(" asdas")
+        gc()
     end
-    accuracy(model, dtst)
+
+    acc = 0
+    for idx in test_batch_idxs
+        let dtst = make_batch(data, labels, idx, minibatch_size)
+            acc += accuracy(model, dtst)
+        end
+        gc()
+    end
+    acc /= length(test_batch_idxs)
+    @info "Test Accuracy: $acc"
 
 end
 
