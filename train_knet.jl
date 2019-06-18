@@ -31,6 +31,19 @@ function make_batch(data, labels, idxs, minibatch_size; n = 512, noverlap = div(
     return minibatch(X_batch, Y_batch, minibatch_size)
 end
 
+function confusion(model, data, size)
+    conf = zeros(Float32, size, size)
+    for mbatch in data
+        confl = zeros(Float32, size, size)
+        pred = model(mbatch[1])
+        for ind = 1:length(mbatch[2])
+            confl[findmax(pred[ind, :])[2], mbatch[2][ind]] += 1
+        end
+        conf += confl ./ length(mbatch[2])
+    end
+    return conf ./ maximum(conf)
+end
+
 minibatch_size = 4
 train_batch_size = 16
 test_batch_size = 64
@@ -97,7 +110,7 @@ function train!(epochs, load=true)
             push!(test_accs, test_acc)
 
             @info "Test Accuracies: $test_acc, Mean: $(mean(test_acc))"
-            if length(test_accs) > 1 && mean(test_acc) > mean(maximum(test_accs[1:(end-1)]))
+            if length(test_accs) > 1 && mean(test_acc) > maximum(mean.(test_accs[1:(end-1)]))
                 Knet.save("model2.jld2", "model", model, "test_accs", test_accs)
             end
         end
