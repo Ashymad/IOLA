@@ -58,7 +58,7 @@ model.compile(optimizer='adam', loss='categorical_crossentropy',
               metrics=['categorical_accuracy'], shuffle=True)
 
 history = model.fit(X_train, Y_train, validation_data=(X_test, Y_test),
-                    batch_size=10, epochs=10)
+                    batch_size=10, epochs=100)
 
 numh = 1
 while os.path.isfile(f"history{numh}.pickle"):
