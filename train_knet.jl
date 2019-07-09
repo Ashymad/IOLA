@@ -44,11 +44,13 @@ function confusion(model, data, size)
     return conf ./ length(data)
 end
 
-minibatch_size = 4
-train_batch_size = 32
-test_batch_size = 64
-train_size = 512
-test_size = 512
+const no_categories = 4
+
+const minibatch_size = 4
+const train_batch_size = 256
+const test_batch_size = 512
+const train_size = 2048
+const test_size = 2048
 
 train_batch_idxs = collect(partition(1:train_size, train_batch_size))
 test_batch_idxs = partition((train_size+1):(train_size+test_size), test_batch_size)
@@ -77,7 +79,7 @@ function train!(epochs, load=true)
               Conv(3, 3, 16, 16),
               Dense(50400, 256, pdrop=0.3),
               Dense(256, 256, pdrop=0.2),
-              Dense(256, 4, identity, pdrop=0.2)),
+              Dense(256, no_categories, identity, pdrop=0.2)),
         Array{Array{Float32, 2}, 1}()
     end
     best_acc = length(test_confs) > 0 ? mean(diag(test_confs[end])) : 0
@@ -97,10 +99,10 @@ function train!(epochs, load=true)
                 gc()
             end
 
-            test_conf = zeros(4, 4)
+            test_conf = zeros(no_categories, no_categories)
             for idx in progress(test_batch_idxs)
                 let dtst = make_batch(data, labels, idx, minibatch_size, divider=6)
-                    test_conf .+= confusion(model, dtst, 4)
+                    test_conf .+= confusion(model, dtst, no_categories)
                 end
                 gc()
             end
