@@ -37,7 +37,7 @@ function confusion(model, data, size)
     for mbatch in data
         pred = convert(Array, model(mbatch[1]))
         for ind = 1:length(mbatch[2])
-            conf[findmax(pred[ind, :])[2], mbatch[2][ind]] += 1
+            conf[findmax(pred[:, ind])[2], mbatch[2][ind]] += 1
         end
     end
     return conf ./ length(data)
