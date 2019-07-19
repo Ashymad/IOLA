@@ -34,13 +34,16 @@ end
 
 function confusion(model, data, size)
     conf = zeros(Float32, size, size)
+    sz = 0
     for mbatch in data
         pred = convert(Array, model(mbatch[1]))
-        for ind = 1:length(mbatch[2])
+        mblen = length(mbatch[2])
+        for ind = 1:mblen
             conf[findmax(pred[:, ind])[2], mbatch[2][ind]] += 1
         end
+        sz += mblen
     end
-    return conf ./ length(data)
+    return size .* conf ./ sz 
 end
 
 cat_mapping =
@@ -59,8 +62,8 @@ Dict{Int8, UInt8}(
 
 no_categories = 10
 
-minibatch_size = 4
-train_batch_size = 128
+minibatch_size = 2
+train_batch_size = 16
 test_batch_size = 512
 train_size = 4096
 test_size = 2048
@@ -92,9 +95,9 @@ function train!(epochs, load=true, train=true, test=true)
         Chain(Conv(3, 3, 1, 16),
               Conv(3, 3, 16, 16),
               Conv(3, 3, 16, 16),
-              Dense(102240, 256, pdrop=0.3),
-              Dense(256, 256, pdrop=0.2),
-              Dense(256, no_categories, identity, pdrop=0.2)),
+              Dense(102240, 300, pdrop=0.3),
+              Dense(300, 300, pdrop=0.2),
+              Dense(300, no_categories, identity, pdrop=0.2)),
         Array{Array{Float32, 2}, 1}()
     end
     best_acc = length(test_confs) > 0 ? mean(diag(test_confs[end])) : 0
