@@ -1,19 +1,16 @@
 using IOLA
+using IOLA.Utils
 using MDCT
 using DSP
 using WAV
 using Gnuplot
 using Statistics
 
-#period = 36.0 #mp3
-#period = 68.0 #aac
-#period = 17 #ac3?
+codec = "aac"
 
-codec = "wma"
-
-params = Codec.getParams(Codec.WMA)
+params = Codec.getparams(Codec.AAC)
 seg_hop = params.hop
-transform = Codec.getTransformFunction(params)
+transform = Codec.gettransform(params)
 
 bitrates = [128, 196, 256, 320]
 
@@ -44,17 +41,26 @@ end
     xs, periodf[:,1], "w l tit 'none'"
    )
 
-period = xs[end+1-findmin(periodf[end:-1:1,2])[2]]
+period = zeros(5)
+phis = zeros(length(diffs[1][:,2]), 5)
+for i = 1:5
+    period[i] = findperiod(diffs[i][:,2], xs)
+    phis[:, i] = 2π*mod.(diffs[i][:,2], period[i])./period[i]
+end
 
 @gp(:GP1, "set angles radians",
     "set polar",
     "set grid polar 15. lt -1 dt 0 lw 0.5",
     "unset border", "unset param",
     "unset xtics",
-    2π*mod.(diffs[2][:,2], period)/period, diffs[2][:,1], "pt 7 ps 2 t '128k'",
-    2π*mod.(diffs[3][:,2], period)/period, diffs[3][:,1], "pt 7 ps 2 t '196k'",
-    2π*mod.(diffs[4][:,2], period)/period, diffs[4][:,1], "pt 7 ps 2 t '256k'",
-    2π*mod.(diffs[5][:,2], period)/period, diffs[5][:,1], "pt 7 ps 2 t '320k'",
-    2π*mod.(diffs[1][:,2], period)/period, diffs[1][:,1], "pt 7 ps 2 t 'none'"
+    phis[:,2], diffs[2][:,1], "pt 7 ps 2 t '128k'",
+    phis[:,3], diffs[3][:,1], "pt 7 ps 2 t '196k'",
+    phis[:,4], diffs[4][:,1], "pt 7 ps 2 t '256k'",
+    phis[:,5], diffs[5][:,1], "pt 7 ps 2 t '320k'",
+    phis[:,1], diffs[1][:,1], "pt 7 ps 2 t 'none'"
    )
 
+roms = zeros(5)
+for i = 1:5
+    roms[i] = radiusofmean(diffs[i][:,1], phis[:,i])
+end
