@@ -7,15 +7,16 @@ from random import randint, shuffle
 import h5py as h5
 
 fragment_length = 10
-maxsize = 0
+max_dataset_size = 65536
 fs = 44100
 bd = 16
 
-fmt = [None, "mp3", "aac", "ogg"]
-ffmpg_filt = [None, "mp3", "adts", "ogg"]
+fmt = [None, "mp3", "aac", "ogg", "wma", "ac3"]
+ffmpeg_format = [None, "mp3", "adts", "ogg", "asf", "ac3"]
+ffmpeg_codec = [None, "libmp3lame", "aac", "libvorbis", "wmav2", "ac3"]
 bitrates = ["320k", "192k", "128k"]
 bitrates_labels = [1, 2, 3]
-fmt_labels = [0, 10, 20, 30]
+fmt_labels = [0, 10, 20, 30, 40, 50]
 lenbr = len(bitrates)*len(fmt) - len(bitrates) + 1
 
 allfiles = []
@@ -54,12 +55,14 @@ with h5.File('dataset.h5', 'w') as f:
                         for i2 in range(len(bitrates)):
                             labels[actualsize] = bitrates_labels[i2] + fmt_labels[i1]
                             fragment.export(f"/tmp/tmp.{fmt[i1]}",
-                                            format=ffmpg_filt[i1],
+                                            format=ffmpeg_format[i1],
+                                            codec=ffmpeg_codec[i1],
                                             bitrate=bitrates[i2])
-                            fragment = AudioSegment.from_file(f"/tmp/tmp.{fmt[i1]}",
-                                                              format=fmt[i1])
+                            fragment = AudioSegment.from_file(f"/tmp/tmp.{fmt[i1]}")
                             data[actualsize, :] = fragment.set_channels(1).get_array_of_samples()[0:fragment_length*fs]
                             actualsize += 1
+            if actualsize >= max_dataset_size:
+                break
         except KeyboardInterrupt:
             print("Received SIGINT, exiting...")
             break
