@@ -40,8 +40,7 @@ with h5.File('dataset.h5', 'w') as f:
         try:
             audio = AudioSegment\
                 .from_file(fpath, format="flac")
-            if audio.duration_seconds > fragment_length and \
-               audio.frame_rate == fs:
+            if audio.duration_seconds > fragment_length and audio.frame_rate == fs:
                 print(f"Preparing: {fpath} ({int(actualsize/lenbr)}/{int(maxsize/lenbr)})")
                 audio = normalize(audio.set_sample_width(bd//8))
                 start = randint(0, np.floor((audio.duration_seconds-fragment_length)*1000))
@@ -59,7 +58,9 @@ with h5.File('dataset.h5', 'w') as f:
                                             codec=ffmpeg_codec[i1],
                                             bitrate=bitrates[i2])
                             fragment = AudioSegment.from_file(f"/tmp/tmp.{fmt[i1]}")
-                            data[actualsize, :] = fragment.set_channels(1).get_array_of_samples()[0:fragment_length*fs]
+                            data[actualsize, :] = fragment.set_channels(1)\
+                                                          .set_sample_width(bd//8)\
+                                                          .get_array_of_samples()[0:fragment_length*fs]
                             actualsize += 1
             if actualsize >= max_dataset_size:
                 break
