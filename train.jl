@@ -33,43 +33,81 @@ function make_batch(data, labels, idxs, minibatch_size, cat_mapping; divider = 1
 end
 
 function confusion(model, data, size)
-    conf = zeros(Float32, size, size)
+    conf = zeros(size, size)
     sz = 0
     for mbatch in data
         pred = convert(Array, model(mbatch[1]))
-        mblen = length(mbatch[2])
-        for ind = 1:mblen
+        for ind = 1:length(mbatch[2])
             conf[findmax(pred[:, ind])[2], mbatch[2][ind]] += 1
         end
-        sz += mblen
     end
-    return size .* conf ./ sz 
+    return conf
+end
+
+function get_idxs(size, batch_size, cat_mapping, start_idx=1)
+    idxs = Vector{Vector{Int}}()
+    no_categories = length(unique(values(cat_mapping)))
+    no_labels = length(cat_mapping)
+    cat_lengths = zeros(no_categories)
+    for val in values(cat_mapping)
+        cat_lengths[val] += 1
+    end
+    cat_idxs = zeros(no_categories)
+
+    batch_i = 1
+    lab_i = start_idx
+    push!(idxs, Vector{UInt}())
+    while batch_i <= size/batch_size
+        for i = 1:length(cat_lengths)
+            push!(idxs[batch_i], lab_i + sum(cat_lengths[1:(i-1)]) + cat_idxs[i])
+            cat_idxs[i] = mod(cat_idxs[i] + 1, cat_lengths[i])
+            if length(idxs[batch_i]) == batch_size
+                batch_i += 1
+                if batch_i > size/batch_size
+                    break
+                else
+                    push!(idxs, Vector{UInt}())
+                end
+            end
+        end
+        lab_i += no_labels
+    end
+    idxs
 end
 
 cat_mapping =
-Dict{Int8, UInt8}(
-                  0  => 1, # WAV
-                  11 => 2, # MP3 320
-                  12 => 3, # MP3 192
-                  13 => 4, # MP3 128
-                  21 => 5, # AAC 320
-                  22 => 6, # AAC 192
-                  23 => 7, # AAC 128
-                  31 => 8, # OGG 320
-                  32 => 9, # OGG 192
-                  33 => 10 # OGG 128
+Dict{Int8, UInt8}(0  => 1,  # WAV
+                  11 => 2,  # MP3 320
+                  12 => 2,  # MP3 192
+                  13 => 2,  # MP3 128
+                  21 => 2,  # AAC 320
+                  22 => 2,  # AAC 192
+                  23 => 2,  # AAC 128
+                  31 => 2,  # OGG 320
+                  32 => 2,  # OGG 192
+                  33 => 2,  # OGG 128
+                  41 => 2,  # WMA 320
+                  42 => 2,  # WMA 192
+                  43 => 2,  # WMA 128
+                  51 => 2,  # AC3 320
+                  52 => 2,  # AC3 192
+                  53 => 2,  # AC3 128
                  ) 
-
-no_categories = 10
 
 minibatch_size = 2
 train_batch_size = 16
 test_batch_size = 512
-train_size = 4096
-test_size = 2048
+train_size = 5120
+test_size = 2560
 
-train_batch_idxs = collect(partition(1:train_size, train_batch_size))
-test_batch_idxs = partition((train_size+1):(train_size+test_size), test_batch_size)
+all_mapping =
+Dict{Int8, UInt8}([(key, i) for (i, key) in enumerate(sort(collect(keys(cat_mapping))))])
+
+no_categories = length(unique(values(cat_mapping)))
+no_labels = length(cat_mapping)
+
+train_batch_idxs = get_idxs(train_size, train_batch_size, cat_mapping)
+test_batch_idxs = get_idxs(test_size, test_batch_size, cat_mapping, ceil(Int, train_batch_idxs[end][end]/no_labels)*no_labels + 1)
 
 struct Conv; w; b; f; p; end
 (c::Conv)(x) = c.f.(pool(conv4(c.w, dropout(x,c.p)) .+ c.b))
@@ -84,12 +122,12 @@ struct Chain; layers; Chain(layers...) = new(layers); end
 (c::Chain)(x,y) = nll(c(x),y)
 (c::Chain)(d::Data) = mean(c(x,y) for (x,y) in d)
 
-function train!(epochs, load=true, train=true, test=true)
+function train!(epochs, load=true, filename="model.jld2", train=true, test=true)
     gc()
     Knet.gc()
 
     model, test_confs = if load
-        lf = Knet.load("model.jld2")
+        lf = Knet.load(filename)
         lf["model"], lf["test_confs"]
     else
         Chain(Conv(3, 3, 1, 16),
@@ -100,7 +138,7 @@ function train!(epochs, load=true, train=true, test=true)
               Dense(300, no_categories, identity, pdrop=0.2)),
         Array{Array{Float32, 2}, 1}()
     end
-    best_acc = length(test_confs) > 0 ? mean(diag(test_confs[end])) : 0
+    best_acc = length(test_confs) > 0 ? sum(diag(test_confs[end]))/test_size : 0
 
     h5open("./dataset.h5") do file
         data = file["data"]
@@ -114,7 +152,6 @@ function train!(epochs, load=true, train=true, test=true)
                     let dtrn = make_batch(data, labels, idx, minibatch_size, cat_mapping)
                         for a in adam(model, dtrn); end
                     end
-                    gc()
                 end
             end
 
@@ -124,13 +161,10 @@ function train!(epochs, load=true, train=true, test=true)
                     let dtst = make_batch(data, labels, idx, minibatch_size, cat_mapping)
                         test_conf .+= confusion(model, dtst, no_categories)
                     end
-                    gc()
                 end
-                test_conf ./= length(test_batch_idxs)
-
                 push!(test_confs, test_conf)
 
-                acc = mean(diag(test_conf))
+                acc = sum(diag(test_conf))/test_size
 
                 println("Confusion Matrix:")
                 display(test_conf)
@@ -138,9 +172,11 @@ function train!(epochs, load=true, train=true, test=true)
             else
                 acc = best_acc + 1
             end
-            if acc > best_acc
-                best_acc = acc
-                Knet.save("model.jld2", "model", model, "test_confs", test_confs)
+            if train
+                if acc > best_acc
+                    best_acc = acc
+                    Knet.save(filename, "model", model, "test_confs", test_confs)
+                end
             end
         end
     end
