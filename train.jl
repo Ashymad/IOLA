@@ -32,8 +32,8 @@ function make_batch(data, labels, idxs, minibatch_size, cat_mapping; divider = 1
     return minibatch(convert(KnetArray, X_batch), Y_batch, minibatch_size)
 end
 
-function confusion(model, data, size)
-    conf = zeros(size, size)
+function confusion(model, data, no_categories, no_labels=no_categories)
+    conf = zeros(no_categories, no_labels)
     sz = 0
     for mbatch in data
         pred = convert(Array, model(mbatch[1]))
@@ -42,6 +42,16 @@ function confusion(model, data, size)
         end
     end
     return conf
+end
+
+function squish_confusion(conf_ex, cat_mapping)
+    vals = sort(collect(values(cat_mapping)))
+    no_categories = length(unique(vals))
+    conf = zeros(no_categories, no_categories)
+    for i = 1:length(vals)
+        conf[:, vals[i]] += conf_ex[:, i]
+    end
+    conf
 end
 
 function get_idxs(size, batch_size, cat_mapping, start_idx=1)
@@ -80,18 +90,18 @@ Dict{Int8, UInt8}(0  => 1,  # WAV
                   11 => 2,  # MP3 320
                   12 => 2,  # MP3 192
                   13 => 2,  # MP3 128
-                  21 => 2,  # AAC 320
-                  22 => 2,  # AAC 192
-                  23 => 2,  # AAC 128
-                  31 => 2,  # OGG 320
-                  32 => 2,  # OGG 192
-                  33 => 2,  # OGG 128
-                  41 => 2,  # WMA 320
-                  42 => 2,  # WMA 192
-                  43 => 2,  # WMA 128
-                  51 => 2,  # AC3 320
-                  52 => 2,  # AC3 192
-                  53 => 2,  # AC3 128
+                  21 => 3,  # AAC 320
+                  22 => 3,  # AAC 192
+                  23 => 3,  # AAC 128
+                  31 => 4,  # OGG 320
+                  32 => 4,  # OGG 192
+                  33 => 4,  # OGG 128
+                  41 => 5,  # WMA 320
+                  42 => 5,  # WMA 192
+                  43 => 5,  # WMA 128
+                  51 => 6,  # AC3 320
+                  52 => 6,  # AC3 192
+                  53 => 6,  # AC3 128
                  ) 
 
 minibatch_size = 2
@@ -156,15 +166,15 @@ function train!(epochs, load=true, filename="model.jld2", train=true, test=true)
             end
 
             if test
-                test_conf = zeros(no_categories, no_categories)
+                test_conf = zeros(no_categories, no_labels)
                 for idx in progress(test_batch_idxs)
-                    let dtst = make_batch(data, labels, idx, minibatch_size, cat_mapping)
-                        test_conf .+= confusion(model, dtst, no_categories)
+                    let dtst = make_batch(data, labels, idx, minibatch_size, all_mapping)
+                        test_conf .+= confusion(model, dtst, no_categories, no_labels)
                     end
                 end
                 push!(test_confs, test_conf)
 
-                acc = sum(diag(test_conf))/test_size
+                acc = sum(diag(squish_confusion(test_conf, cat_mapping)))/test_size
 
                 println("Confusion Matrix:")
                 display(test_conf)
