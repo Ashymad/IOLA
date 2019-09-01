@@ -6,9 +6,9 @@ using WAV
 using Gnuplot
 using Statistics
 
-codec = "aac"
+codec = "wma"
 
-params = Codec.getparams(Codec.AAC)
+params = Codec.getparams(Codec.WMA)
 seg_hop = params.hop
 transform = Codec.gettransform(params)
 
@@ -17,13 +17,13 @@ bitrates = [128, 196, 256, 320]
 diffs = Vector{Array{Float64, 2}}()
 
 (y, fs, nbits, opt) = wavread("data/audio.wav")
-seg_len = round(Int, fs/params.length)*params.length
+seg_len = 4*params.length
 
-push!(diffs, analyze(y[:,1], transform, seg_len, seg_hop))
+push!(diffs, analyze(y[1:Int(10fs),1], transform, seg_len, seg_hop))
 
 for bitr in bitrates
     (y, fs, nbits, opt) = wavread("data/$codec/audio-$bitr.wav")
-    push!(diffs, analyze(y[:,1], transform, seg_len, seg_hop))
+    push!(diffs, analyze(y[1:Int(10fs),1], transform, seg_len, seg_hop))
 end
 
 xs = 3:seg_hop
